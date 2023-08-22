@@ -1,5 +1,11 @@
+
+import 'package:floor/floor.dart';
+
+@Entity()
 class ToDo {
-  int id = 0;
+
+  @PrimaryKey(autoGenerate: true)
+  int? id;
   String taskName = '';
   String todoTask = '';
   bool isCheck = false;
