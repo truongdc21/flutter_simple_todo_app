@@ -10,43 +10,49 @@ import '../data_source/todo_remote_source.dart';
 import '../model/todo.dart';
 
 class TodoViewModel extends ChangeNotifier {
-  late ToDoRepositoryImpl _toDoRepository;
+  late final ToDoRepositoryImpl _toDoRepository;
   late TodoDatabase _todoDatabase;
 
-  final List<ToDo> _listTodo = [];
+  bool _isFirstTimeGetDataSuccess = false;
 
-  List<ToDo> get listTodo => _listTodo;
+  bool get isFirstTimeGetDataSuccess => _isFirstTimeGetDataSuccess;
+  bool _isInitDatabase = false;
 
-  TodoViewModel() {
-    _initDatabase();
+  void setIsFirstGetData() {
+    _isFirstTimeGetDataSuccess = true;
   }
 
-  void _initDatabase() async {
+  Future<void> _initDatabase() async {
     _todoDatabase =
         await $FloorTodoDatabase.databaseBuilder(Constant.databaseName).build();
     _toDoRepository = ToDoRepositoryImpl(
-        TodoLocalSource(_todoDatabase.todoDao), TodoRemoteDataSource());
-    _updateListTodo();
+        todoDataSourceLocal: TodoLocalSource(_todoDatabase.todoDao),
+        todoDataSourceRemote: TodoRemoteSource());
   }
 
-  void _updateListTodo() async {
-    _listTodo.clear();
-    _listTodo.addAll(await _toDoRepository.getAllTodos());
-    notifyListeners();
+  Future<List<ToDo>> getAllToDo() async {
+    if (!_isInitDatabase) {
+      await _initDatabase();
+      _isInitDatabase = true;
+    }
+    if (!_isFirstTimeGetDataSuccess) {
+      await Future.delayed(const Duration(seconds: 5));
+    }
+    return await _toDoRepository.getAllTodos();
   }
 
   void insertTodo(ToDo toDo) {
     _toDoRepository.insertToDo(toDo);
-    _updateListTodo();
+    notifyListeners();
   }
 
   void updateTodo(ToDo toDo) {
     _toDoRepository.updateTodo(toDo);
-    _updateListTodo();
+    notifyListeners();
   }
 
   void removeTodo(ToDo toDo) {
     _toDoRepository.removeTodo(toDo);
-    _updateListTodo();
+    notifyListeners();
   }
 }

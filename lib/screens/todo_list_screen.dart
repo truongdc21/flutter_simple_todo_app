@@ -10,7 +10,6 @@ class ToDoListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final readTodoViewModel = context.read<TodoViewModel>();
     final watchTodoViewModel = context.watch<TodoViewModel>();
-    List<ToDo> listTodo = watchTodoViewModel.listTodo;
 
     return Scaffold(
       appBar: AppBar(
@@ -19,19 +18,40 @@ class ToDoListScreen extends StatelessWidget {
       ),
       body: Padding(
           padding: const EdgeInsets.all(10.0),
-          child: ListView.builder(
-              itemCount: listTodo.length,
-              itemBuilder: (context, index) {
-                return TodoItem(listTodo[index], (newValue) {
-                  final todo = listTodo[index];
-                  todo.isCheck = newValue;
-                  readTodoViewModel.updateTodo(todo);
-                  showMySnackBar(context, 'Update task successfully!');
-                }, () {
-                  readTodoViewModel.removeTodo(listTodo[index]);
-                  showMySnackBar(context, 'Remove task successfully');
-                });
-              })),
+          child: FutureBuilder<List<ToDo>>(
+            future: readTodoViewModel.getAllToDo(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !readTodoViewModel.isFirstTimeGetDataSuccess) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              } else if (snapshot.data != null) {
+                List<ToDo>? listTodo = snapshot.data;
+                if (listTodo == null) {
+                  return const Text("Data is Null");
+                } else {
+                  return ListView.builder(
+                      itemCount: listTodo.length,
+                      itemBuilder: (context, index) {
+                        readTodoViewModel.setIsFirstGetData();
+                        return TodoItem(listTodo[index], (newValue) {
+                          final todo = listTodo[index];
+                          todo.isCheck = newValue;
+                          readTodoViewModel.updateTodo(todo);
+                          showMySnackBar(context, 'Update task successfully!');
+                        }, () {
+                          readTodoViewModel.removeTodo(listTodo[index]);
+                          showMySnackBar(context, 'Remove task successfully');
+                        });
+                      });
+                }
+              } else {
+                var ex = snapshot.error;
+                return Text(" Exception : $ex");
+              }
+            },
+          )),
       floatingActionButton: FloatingActionButton(
           onPressed: () {
             _showAddTaskBottomSheet(context, (srtTaskName, srtTaskDetail) {
@@ -73,13 +93,21 @@ class TodoItemState extends State<TodoItem> {
                 children: [
                   Text(
                     widget.todoTask.taskName,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        decoration: styleTextLineThrough(
+                            isCompleted: widget.todoTask.isCheck)),
                     maxLines: 1,
                   ),
                   const SizedBox(
                     height: 10,
                   ),
-                  Text(widget.todoTask.todoTask)
+                  Text(
+                    widget.todoTask.todoTask,
+                    style: TextStyle(
+                        decoration: styleTextLineThrough(
+                            isCompleted: widget.todoTask.isCheck)),
+                  )
                 ],
               ),
             ),
@@ -91,9 +119,11 @@ class TodoItemState extends State<TodoItem> {
                 const SizedBox(
                   width: 10,
                 ),
-                IconButton(onPressed: () {
-                  widget.onRemoveTask();
-                }, icon: const Icon(Icons.delete))
+                IconButton(
+                    onPressed: () {
+                      widget.onRemoveTask();
+                    },
+                    icon: const Icon(Icons.delete))
               ],
             ),
           ],
@@ -211,7 +241,6 @@ void _showAddTaskBottomSheet(
       });
 }
 
-
 void showMySnackBar(BuildContext context, String msg) {
   final snackBar = SnackBar(
     content: Text(msg),
@@ -226,4 +255,12 @@ void showMySnackBar(BuildContext context, String msg) {
   );
   /** Show SnackBar **/
   ScaffoldMessenger.of(context).showSnackBar(snackBar);
+}
+
+TextDecoration styleTextLineThrough({required bool isCompleted}) {
+  if (isCompleted) {
+    return TextDecoration.lineThrough;
+  } else {
+    return TextDecoration.none;
+  }
 }

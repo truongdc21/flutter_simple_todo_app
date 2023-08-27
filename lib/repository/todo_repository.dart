@@ -1,18 +1,19 @@
 import 'package:simple_todo_app/data_source/todo_data_source.dart';
+import 'package:simple_todo_app/data_source/todo_local_source.dart';
 
 import '../model/todo.dart';
 
 class ToDoRepositoryImpl {
-  final TodoDataSourceLocal _todoDataSourceLocal;
-  final TodoDataSourceRemote _todoDataSourceRemote;
+  late final TodoDataSourceLocal todoDataSourceLocal;
+  late final TodoDataSourceRemote todoDataSourceRemote;
 
-  ToDoRepositoryImpl(this._todoDataSourceLocal, this._todoDataSourceRemote);
+  ToDoRepositoryImpl({ required this.todoDataSourceLocal, required this.todoDataSourceRemote});
 
-  void insertToDo(ToDo todo) => _todoDataSourceLocal.insertTodo(todo);
+  void insertToDo(ToDo todo) => todoDataSourceLocal.insertTodo(todo);
 
-  void removeTodo(ToDo todo) => _todoDataSourceLocal.removeTodo(todo);
+  void removeTodo(ToDo todo) => todoDataSourceLocal.removeTodo(todo);
 
-  void updateTodo(ToDo todo) => _todoDataSourceLocal.updateTodo(todo);
+  void updateTodo(ToDo todo) => todoDataSourceLocal.updateTodo(todo);
 
-  Future<List<ToDo>> getAllTodos() => _todoDataSourceLocal.getAllTodos();
+  Future<List<ToDo>> getAllTodos() => todoDataSourceLocal.getAllTodos();
 }
