@@ -1,27 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:simple_todo_app/viewmodel/todo_viewmodel.dart';
 import '../model/todo.dart';
 
-class ToDoListScreen extends StatefulWidget {
-  List<ToDo> mListToDo = [
-    ToDo(1, "Task A", "message from task A", true),
-    ToDo(1, "Task B", "message from task B", false)
-  ];
-
-  @override
-  State<StatefulWidget> createState() {
-    return ToDoListScreenState();
-  }
-}
-
-class ToDoListScreenState extends State<ToDoListScreen> {
-  void _handleCheckboxChanged(int index, bool newValue) {
-    setState(() {
-      widget.mListToDo[index].isCheck = newValue;
-    });
-  }
+class ToDoListScreen extends StatelessWidget {
+  const ToDoListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final readTodoViewModel = context.read<TodoViewModel>();
+    final watchTodoViewModel = context.watch<TodoViewModel>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('To-do List'),
@@ -29,33 +18,63 @@ class ToDoListScreenState extends State<ToDoListScreen> {
       ),
       body: Padding(
           padding: const EdgeInsets.all(10.0),
-          child: ListView.builder(
-              itemCount: widget.mListToDo.length,
-              itemBuilder: (context, index) {
-                return TodoItem(widget.mListToDo[index],
-                    (newValue) => _handleCheckboxChanged(index, newValue));
-              })),
-      floatingActionButton: FloatingActionButton(onPressed: () {
-        setState(() {
-          widget.mListToDo
-              .add(ToDo(0, 'Task Add', 'messaging from task Add', false));
-        });
-      }),
+          child: FutureBuilder<List<ToDo>>(
+            future: readTodoViewModel.getAllToDo(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !readTodoViewModel.isFirstTimeGetDataSuccess) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              } else if (snapshot.data != null) {
+                List<ToDo>? listTodo = snapshot.data;
+                if (listTodo == null) {
+                  return const Text("Data is Null");
+                } else {
+                  return ListView.builder(
+                      itemCount: listTodo.length,
+                      itemBuilder: (context, index) {
+                        readTodoViewModel.setIsFirstGetData();
+                        return TodoItem(listTodo[index], (newValue) {
+                          final todo = listTodo[index];
+                          todo.isCheck = newValue;
+                          readTodoViewModel.updateTodo(todo);
+                          showMySnackBar(context, 'Update task successfully!');
+                        }, () {
+                          readTodoViewModel.removeTodo(listTodo[index]);
+                          showMySnackBar(context, 'Remove task successfully');
+                        });
+                      });
+                }
+              } else {
+                var ex = snapshot.error;
+                return Text(" Exception : $ex");
+              }
+            },
+          )),
+      floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            _showAddTaskBottomSheet(context, (srtTaskName, srtTaskDetail) {
+              readTodoViewModel
+                  .insertTodo(ToDo(null, srtTaskName, srtTaskDetail, false));
+              showMySnackBar(context, 'Insert task successfully');
+            });
+          },
+          child: const Icon(Icons.add)),
     );
   }
 }
 
 class TodoItem extends StatefulWidget {
   late ToDo todoTask;
+  Function(bool) onCheckboxChanged;
+  Function() onRemoveTask;
 
-  final Function(bool) onCheckboxChanged;
-
-  TodoItem(this.todoTask, this.onCheckboxChanged, {super.key});
+  TodoItem(this.todoTask, this.onCheckboxChanged, this.onRemoveTask,
+      {super.key});
 
   @override
-  State<StatefulWidget> createState() {
-    return TodoItemState();
-  }
+  TodoItemState createState() => TodoItemState();
 }
 
 class TodoItemState extends State<TodoItem> {
@@ -74,13 +93,21 @@ class TodoItemState extends State<TodoItem> {
                 children: [
                   Text(
                     widget.todoTask.taskName,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        decoration: styleTextLineThrough(
+                            isCompleted: widget.todoTask.isCheck)),
                     maxLines: 1,
                   ),
                   const SizedBox(
                     height: 10,
                   ),
-                  Text(widget.todoTask.todoTask)
+                  Text(
+                    widget.todoTask.todoTask,
+                    style: TextStyle(
+                        decoration: styleTextLineThrough(
+                            isCompleted: widget.todoTask.isCheck)),
+                  )
                 ],
               ),
             ),
@@ -92,7 +119,11 @@ class TodoItemState extends State<TodoItem> {
                 const SizedBox(
                   width: 10,
                 ),
-                const Icon(Icons.delete)
+                IconButton(
+                    onPressed: () {
+                      widget.onRemoveTask();
+                    },
+                    icon: const Icon(Icons.delete))
               ],
             ),
           ],
@@ -103,7 +134,6 @@ class TodoItemState extends State<TodoItem> {
 }
 
 class CheckBoxToDo extends StatefulWidget {
-
   final bool isCheck;
   final Function(bool) onClickButton;
 
@@ -111,12 +141,10 @@ class CheckBoxToDo extends StatefulWidget {
     onClickButton(newValue);
   }
 
-  CheckBoxToDo(this.isCheck, this.onClickButton, {super.key});
+  const CheckBoxToDo(this.isCheck, this.onClickButton, {super.key});
 
   @override
-  State<StatefulWidget> createState() {
-    return CheckBoxToDoSate();
-  }
+  CheckBoxToDoSate createState() => CheckBoxToDoSate();
 }
 
 class CheckBoxToDoSate extends State<CheckBoxToDo> {
@@ -130,5 +158,109 @@ class CheckBoxToDoSate extends State<CheckBoxToDo> {
         }
       },
     );
+  }
+}
+
+void _showAddTaskBottomSheet(
+    BuildContext context, Function(String, String) onAddTask) {
+  TextEditingController taskNameController = TextEditingController();
+  TextEditingController taskDetailController = TextEditingController();
+  showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.0)),
+      ),
+      builder: (BuildContext context) {
+        return SingleChildScrollView(
+          child: Container(
+            color: Colors.white38,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50.0,
+                    child: Container(
+                      color: Colors.grey,
+                      child: const Center(
+                        child: Text(
+                          "Add Task",
+                          style: TextStyle(
+                              fontSize: 24,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 10, right: 10),
+                    child: TextField(
+                      controller: taskNameController,
+                      decoration: const InputDecoration(
+                          labelText: 'Enter your task name!'),
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 10, right: 10),
+                    child: TextField(
+                      controller: taskDetailController,
+                      decoration: const InputDecoration(
+                          labelText: 'Enter your task detail!'),
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 30,
+                  ),
+                  ElevatedButton(
+                      onPressed: () {
+                        onAddTask(
+                            taskNameController.text, taskDetailController.text);
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Add Task')),
+                  const SizedBox(
+                    height: 35,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      });
+}
+
+void showMySnackBar(BuildContext context, String msg) {
+  final snackBar = SnackBar(
+    content: Text(msg),
+    duration: const Duration(seconds: 1),
+    action: SnackBarAction(
+      label: 'Close',
+      onPressed: () {
+        /** Hide SnackBar **/
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      },
+    ),
+  );
+  /** Show SnackBar **/
+  ScaffoldMessenger.of(context).showSnackBar(snackBar);
+}
+
+TextDecoration styleTextLineThrough({required bool isCompleted}) {
+  if (isCompleted) {
+    return TextDecoration.lineThrough;
+  } else {
+    return TextDecoration.none;
   }
 }
