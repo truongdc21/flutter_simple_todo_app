@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:simple_todo_app/viewmodel/todo_viewmodel.dart';
+
 import '../model/todo.dart';
 
-class ToDoListScreen extends StatelessWidget {
+class ToDoListScreen extends HookConsumerWidget {
   const ToDoListScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final readTodoViewModel = context.read<TodoViewModel>();
-    final watchTodoViewModel = context.watch<TodoViewModel>();
-
+  Widget build(BuildContext context, WidgetRef ref) {
+    final todoViewModel = ref.watch(todoViewModelProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('To-do List'),
@@ -19,10 +18,10 @@ class ToDoListScreen extends StatelessWidget {
       body: Padding(
           padding: const EdgeInsets.all(10.0),
           child: FutureBuilder<List<ToDo>>(
-            future: readTodoViewModel.getAllToDo(),
+            future: todoViewModel.getAllToDo(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting &&
-                  !readTodoViewModel.isFirstTimeGetDataSuccess) {
+                  !todoViewModel.isFirstTimeGetDataSuccess) {
                 return const Center(
                   child: CircularProgressIndicator(),
                 );
@@ -34,14 +33,14 @@ class ToDoListScreen extends StatelessWidget {
                   return ListView.builder(
                       itemCount: listTodo.length,
                       itemBuilder: (context, index) {
-                        readTodoViewModel.setIsFirstGetData();
+                        todoViewModel.setIsFirstGetData();
                         return TodoItem(listTodo[index], (newValue) {
                           final todo = listTodo[index];
                           todo.isCheck = newValue;
-                          readTodoViewModel.updateTodo(todo);
+                          todoViewModel.updateTodo(todo);
                           showMySnackBar(context, 'Update task successfully!');
                         }, () {
-                          readTodoViewModel.removeTodo(listTodo[index]);
+                          todoViewModel.removeTodo(listTodo[index]);
                           showMySnackBar(context, 'Remove task successfully');
                         });
                       });
@@ -55,7 +54,7 @@ class ToDoListScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton(
           onPressed: () {
             _showAddTaskBottomSheet(context, (srtTaskName, srtTaskDetail) {
-              readTodoViewModel
+              todoViewModel
                   .insertTodo(ToDo(null, srtTaskName, srtTaskDetail, false));
               showMySnackBar(context, 'Insert task successfully');
             });

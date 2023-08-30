@@ -1,19 +1,25 @@
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:simple_todo_app/data_source/todo_data_source.dart';
 import 'package:simple_todo_app/data_source/todo_local_source.dart';
+import 'package:simple_todo_app/data_source/todo_remote_source.dart';
 
 import '../model/todo.dart';
 
+final todoRepositoryProvider = Provider((ref) => ToDoRepositoryImpl(ref));
+
 class ToDoRepositoryImpl {
-  late final TodoDataSourceLocal todoDataSourceLocal;
-  late final TodoDataSourceRemote todoDataSourceRemote;
+  ToDoRepositoryImpl(this._ref);
 
-  ToDoRepositoryImpl({ required this.todoDataSourceLocal, required this.todoDataSourceRemote});
+  late final _todoDataSourceLocal = _ref.read(todoLocalSourceProvider);
+  late final _todoDataSourceRemote = _ref.read(todoRemoteSourceProvider);
 
-  void insertToDo(ToDo todo) => todoDataSourceLocal.insertTodo(todo);
+  late final Ref _ref;
 
-  void removeTodo(ToDo todo) => todoDataSourceLocal.removeTodo(todo);
+  void insertToDo(ToDo todo) => _todoDataSourceLocal.insertTodo(todo);
 
-  void updateTodo(ToDo todo) => todoDataSourceLocal.updateTodo(todo);
+  void removeTodo(ToDo todo) => _todoDataSourceLocal.removeTodo(todo);
 
-  Future<List<ToDo>> getAllTodos() => todoDataSourceLocal.getAllTodos();
+  void updateTodo(ToDo todo) => _todoDataSourceLocal.updateTodo(todo);
+
+  Future<List<ToDo>> getAllTodos() => _todoDataSourceLocal.getAllTodos();
 }

@@ -20,6 +20,9 @@ dependencies:
   floor: ^1.4.2
   sqflite: ^2.3.0
 
+  flutter_hooks: ^0.20.1
+  hooks_riverpod: ^2.3.10
+
 
 
   cupertino_icons: ^1.0.2
